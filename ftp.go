@@ -64,6 +64,7 @@ type dialOptions struct {
 	disableEPSV bool
 	disableUTF8 bool
 	disableMLSD bool
+	disableMFMT bool
 	writingMDTM bool
 	location    *time.Location
 	debugOutput io.Writer
@@ -206,6 +207,15 @@ func DialWithDisabledMLSD(disabled bool) DialOption {
 	}}
 }
 
+// DialWithDisabledMFMT returns a DialOption that prevents using the MFMT command.
+//
+// This is useful for some ProFTPd servers which advertise MFMT but later return a error.
+func DialWithDisabledMFMT(disabled bool) DialOption {
+	return DialOption{func(do *dialOptions) {
+		do.disableMFMT = disabled
+	}}
+}
+
 // DialWithWritingMDTM returns a DialOption making ServerConn use MDTM to set file time
 //
 // This option addresses a quirk in the VsFtpd server which doesn't support
@@ -334,7 +344,9 @@ func (c *ServerConn) Login(user, password string) error {
 	}
 	_, c.usePRET = c.features["PRET"]
 
-	_, c.mfmtSupported = c.features["MFMT"]
+	if _, mfmtSupported := c.features["MFMT"]; mfmtSupported && !c.options.disableMFMT {
+		c.mfmtSupported = true
+	}
 	_, c.mdtmSupported = c.features["MDTM"]
 	c.mdtmCanWrite = c.mdtmSupported && c.options.writingMDTM
 
