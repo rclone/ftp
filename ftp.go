@@ -559,7 +559,12 @@ func (c *ServerConn) openDataConn() (net.Conn, error) {
 	}
 
 	if c.options.tlsConfig != nil {
-		return tls.DialWithDialer(&c.options.dialer, "tcp", addr, c.options.tlsConfig)
+		conn, err := c.options.dialer.Dial("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		tlsConn := tls.Client(conn, c.options.tlsConfig)
+		return tlsConn, nil
 	}
 
 	return c.options.dialer.Dial("tcp", addr)
@@ -912,8 +917,21 @@ func (c *ServerConn) StorFrom(path string, r io.Reader, offset uint64) error {
 	// response otherwise if the failure is not due to a connection problem,
 	// for example the server denied the upload for quota limits, we miss
 	// the response and we cannot use the connection to send other commands.
-	if _, err := io.Copy(conn, r); err != nil {
+	if n, err := io.Copy(conn, r); err != nil {
 		errs = multierror.Append(errs, err)
+	} else if n == 0 {
+		// If we wrote no bytes and got no error, make sure we call
+		// tls.Handshake on the connection as it won't get called
+		// unless Write() is called.
+		//
+		// ProFTP doesn't like this and returns "Unable to build data
+		// connection: Operation not permitted" when trying to upload
+		// an empty file without this.
+		if do, ok := conn.(interface{ Handshake() error }); ok {
+			if err := do.Handshake(); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
 	}
 
 	if err := conn.Close(); err != nil {
