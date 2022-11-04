@@ -127,10 +127,19 @@ func parseLsListLine(line string, now time.Time, loc *time.Location) (*Entry, er
 	e := &Entry{
 		Name: scanner.Remaining(),
 	}
+	sizeIndex := 4
+	timeIndex := 5
+	// Last field may be the name
+	if len(e.Name) == 0 {
+		e.Name = fields[7]
+		sizeIndex = 3
+		timeIndex = 4
+	}
+
 	switch fields[0][0] {
 	case '-':
 		e.Type = EntryTypeFile
-		if err := e.setSize(fields[4]); err != nil {
+		if err := e.setSize(fields[sizeIndex]); err != nil {
 			return nil, err
 		}
 	case 'd':
@@ -147,7 +156,7 @@ func parseLsListLine(line string, now time.Time, loc *time.Location) (*Entry, er
 		return nil, errUnknownListEntryType
 	}
 
-	if err := e.setTime(fields[5:8], now, loc); err != nil {
+	if err := e.setTime(fields[timeIndex:timeIndex+3], now, loc); err != nil {
 		return nil, err
 	}
 
