@@ -48,6 +48,9 @@ var listTests = []line{
 	{"drwxr-xr-x               folder        0 Aug 15 05:49 !!!-Tipp des Haus!", "!!!-Tipp des Haus!", 0, EntryTypeFolder, newTime(thisYear, time.August, 15, 5, 49)},
 	{"drwxrwxrwx               folder        0 Aug 11 20:32 P0RN", "P0RN", 0, EntryTypeFolder, newTime(thisYear, time.August, 11, 20, 32)},
 	{"-rw-r--r--        0   18446744073709551615 18446744073709551615 Nov 16  2006 VIDEO_TS.VOB", "VIDEO_TS.VOB", 18446744073709551615, EntryTypeFile, newTime(2006, time.November, 16)},
+	{"-rw-rw-rw-  1              generic        103344 Jan 03 15:12 test.pdf", "test.pdf", 103344, EntryTypeFile, newTime(thisYear, time.January, 3, 15, 12)},
+	{"drw-rw-rw-  3              generic          4096 Jan 03 16:31 pub", "pub", 0, EntryTypeFolder, newTime(thisYear, time.January, 3, 16, 31)},
+	{"-rw-rw-rw-  1              generic         29203 Jan 08 13:22 first_part second.part third.part.xml", "first_part second.part third.part.xml", 29203, EntryTypeFile, newTime(thisYear, time.January, 8, 13, 22)},
 
 	// Microsoft's FTP servers for Windows
 	{"----------   1 owner    group         1803128 Jul 10 10:18 ls-lR.Z", "ls-lR.Z", 1803128, EntryTypeFile, newTime(thisYear, time.July, 10, 10, 18)},
