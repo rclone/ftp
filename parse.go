@@ -71,6 +71,11 @@ func parseRFC3659ListLine(line string, now time.Time, loc *time.Location) (*Entr
 	return e, nil
 }
 
+func isNumber(str string) bool {
+	_, err := strconv.ParseUint(str, 0, 64)
+	return err == nil
+}
+
 // parseLsListLine parses a directory line in a format based on the output of
 // the UNIX ls command.
 func parseLsListLine(line string, now time.Time, loc *time.Location) (*Entry, error) {
@@ -129,11 +134,16 @@ func parseLsListLine(line string, now time.Time, loc *time.Location) (*Entry, er
 	}
 	sizeIndex := 4
 	timeIndex := 5
-	// Last field may be the name
-	if len(e.Name) == 0 {
-		e.Name = fields[7]
+
+	// Assume group or user is missing
+	if !isNumber(fields[2]) && isNumber(fields[3]) {
 		sizeIndex = 3
 		timeIndex = 4
+		if len(e.Name) > 0 {
+			e.Name = fields[7] + " " + e.Name
+		} else {
+			e.Name = fields[7]
+		}
 	}
 
 	switch fields[0][0] {
