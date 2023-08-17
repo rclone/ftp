@@ -83,7 +83,7 @@ type dialOptions struct {
 	forceListHidden bool
 	location        *time.Location
 	debugOutput     io.Writer
-	dialFunc        func(network, address string) (net.Conn, error)
+	dialFunc        func(ctx context.Context, network, address string) (net.Conn, error)
 	shutTimeout     time.Duration // time to wait for data connection closing status
 }
 
@@ -115,13 +115,12 @@ func Dial(addr string, options ...DialOption) (*ServerConn, error) {
 	}
 
 	dialFunc := do.dialFunc
+	ctx := do.context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	if dialFunc == nil {
-		ctx := do.context
-
-		if ctx == nil {
-			ctx = context.Background()
-		}
 		if _, ok := ctx.Deadline(); !ok {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, DefaultDialTimeout)
@@ -129,7 +128,7 @@ func Dial(addr string, options ...DialOption) (*ServerConn, error) {
 		}
 
 		if do.tlsConfig != nil && !do.explicitTLS {
-			dialFunc = func(network, address string) (net.Conn, error) {
+			dialFunc = func(ctx context.Context, network, address string) (net.Conn, error) {
 				tlsDialer := &tls.Dialer{
 					NetDialer: &do.dialer,
 					Config:    do.tlsConfig,
@@ -138,13 +137,13 @@ func Dial(addr string, options ...DialOption) (*ServerConn, error) {
 			}
 		} else {
 
-			dialFunc = func(network, address string) (net.Conn, error) {
+			dialFunc = func(ctx context.Context, network, address string) (net.Conn, error) {
 				return do.dialer.DialContext(ctx, network, addr)
 			}
 		}
 	}
 
-	tconn, err := dialFunc("tcp", addr)
+	tconn, err := dialFunc(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +307,25 @@ func DialWithDebugOutput(w io.Writer) DialOption {
 // If used together with the DialWithNetConn option, the DialWithNetConn
 // takes precedence for the control connection, while data connections will
 // be established using function specified with the DialWithDialFunc option
+//
+// Use DialWithDialFunc or DialWithDialContextFunc not both
 func DialWithDialFunc(f func(network, address string) (net.Conn, error)) DialOption {
+	return DialOption{func(do *dialOptions) {
+		do.dialFunc = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return f(network, address)
+		}
+	}}
+}
+
+// DialWithDialContextFunc returns a DialOption that configures the ServerConn to use the
+// specified function to establish both control and data connections
+//
+// If used together with the DialWithNetConn option, the DialWithNetConn
+// takes precedence for the control connection, while data connections will
+// be established using function specified with the DialWithDialContextFunc option
+//
+// Use DialWithDialFunc or DialWithDialContextFunc not both
+func DialWithDialContextFunc(f func(ctx context.Context, network, address string) (net.Conn, error)) DialOption {
 	return DialOption{func(do *dialOptions) {
 		do.dialFunc = f
 	}}
@@ -553,9 +570,13 @@ func (c *ServerConn) openDataConn() (net.Conn, error) {
 		return nil, err
 	}
 
+	ctx := c.options.context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	if c.options.dialFunc != nil {
-		return c.options.dialFunc("tcp", addr)
+		return c.options.dialFunc(ctx, "tcp", addr)
 	}
 
 	if c.options.tlsConfig != nil {
